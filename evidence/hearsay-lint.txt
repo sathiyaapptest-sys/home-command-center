@@ -1,0 +1,17 @@
+Hearsay "lint" against this repo's MCP server (static voice-readiness checks on the tool list)
+Date: 2026-10-21
+Tool: hearsayhq/hearsay @ adbc596 (MIT, third-party, unofficial, run unmodified, not affiliated with this project)
+How it was run: from a clean clone with install scripts disabled, inside a macOS sandbox that blocked all
+network traffic except to this machine, with a stripped environment (no AWS credentials, no home-directory
+secrets). Command: hearsay lint http://127.0.0.1:4101/mcp -v
+Note: Hearsay's lint sends its own made-up bearer values, so a throwaway loopback helper swapped in a real
+token from this server's OAuth flow. Authentication behaviour is verified separately (see mcp-protocol-checks.txt).
+
+Result:
+lint 127.0.0.1:4101 · 0 cases · scripted
+no findings
+0 errors · 0 warnings · 0 info
+Tools inspected: 7 (names, descriptions, input schemas, annotations)
+
+Not covered by this run: Hearsay's scenario suites (mishearing, reply length when spoken, confirmation steps),
+which need hand-written YAML cases per tool.

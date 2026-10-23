@@ -1,6 +1,6 @@
 // Home Command Center motor node (classic ESP32, 30-pin dev board).
 //
-// - Matter on/off plug: Alexa (Echo) controls the relay natively, no cloud skill needed.
+// - Two Matter on/off plugs (relay and onboard LED): Alexa (Echo) controls them natively, no cloud skill needed.
 // - Reports to the Command Center backend every second: relay state plus whether the motor is
 //   really turning (MPU6050 vibration), and applies on/off commands from the TV / web app.
 //
@@ -41,12 +41,25 @@
 #define VIBRATION_THRESHOLD 0.02f
 // ------------------------------------------
 
+// The board's own LED as a second, wiring-free device ("ESP32 LED" on the dashboard).
+// ESP32-S3 dev boards carry an addressable RGB LED on GPIO48 (a few clones use GPIO38: change it here);
+// the classic board has a plain LED on GPIO2.
+#define LED_NODE_ID "led1"
+#define LED_NODE_NAME "ESP32 LED"
+#if CONFIG_IDF_TARGET_ESP32S3
+#define LED_RGB_PIN 48
+#else
+#define LED_PIN 2
+#endif
+
 #define BOOT_BUTTON 0
 #define MPU_ADDR 0x68
 #define REPORT_EVERY_MS 1000
 
-MatterOnOffPlugin plug;
+MatterOnOffPlugin plug;     // the relay
+MatterOnOffPlugin ledPlug;  // the onboard LED
 bool relayOn = false;
+bool ledOn = false;
 bool mpuOk = false;
 float vibration = 0;
 
@@ -55,10 +68,25 @@ void setRelay(bool on) {
   digitalWrite(RELAY_PIN, (on != RELAY_ACTIVE_LOW) ? HIGH : LOW);
 }
 
+void setLed(bool on) {
+  ledOn = on;
+#if CONFIG_IDF_TARGET_ESP32S3
+  rgbLedWrite(LED_RGB_PIN, 0, on ? 90 : 0, 0);  // green when on
+#else
+  digitalWrite(LED_PIN, on ? HIGH : LOW);
+#endif
+}
+
 // Called when Alexa (or any Matter controller) switches the plug.
 bool onMatterChange(bool on) {
   setRelay(on);
   Serial.printf("Matter: relay %s\n", on ? "ON" : "OFF");
+  return true;
+}
+
+bool onMatterLedChange(bool on) {
+  setLed(on);
+  Serial.printf("Matter: LED %s\n", on ? "ON" : "OFF");
   return true;
 }
 
@@ -106,17 +134,18 @@ float measureVibration() {
   return sqrtf(fmaxf(0, sumSq / ok - mean * mean));
 }
 
-// Sends one report; returns the backend's pending command ("on", "off", or "" for none).
-String report(bool running) {
+// Sends one device's report; returns the backend's pending command ("on", "off", or "" for none).
+String reportNode(const char *id, const char *name, bool on, bool running, float vib, bool sensor, float watts) {
   if (WiFi.status() != WL_CONNECTED) return "";
   HTTPClient http;
   http.setTimeout(1500);
-  http.begin(String(BACKEND_URL) + "/nodes/" + NODE_ID + "/report");
+  http.begin(String(BACKEND_URL) + "/nodes/" + id + "/report");
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Key", DEVICE_KEY);
-  char body[200];
-  snprintf(body, sizeof(body), "{\"name\":\"%s\",\"relayOn\":%s,\"running\":%s,\"vibration\":%.4f,\"sensor\":%s}", NODE_NAME,
-           relayOn ? "true" : "false", running ? "true" : "false", vibration, mpuOk ? "true" : "false");
+  char body[240];
+  snprintf(body, sizeof(body),
+           "{\"name\":\"%s\",\"relayOn\":%s,\"running\":%s,\"vibration\":%.4f,\"sensor\":%s,\"ratedWattage\":%.1f}", name,
+           on ? "true" : "false", running ? "true" : "false", vib, sensor ? "true" : "false", watts);
   int code = http.POST(body);
   String reply = code > 0 ? http.getString() : "";
   http.end();
@@ -145,6 +174,12 @@ void setup() {
   delay(200);
   pinMode(RELAY_PIN, OUTPUT);
   setRelay(false);  // always start OFF, for safety
+#ifdef LED_PIN
+  pinMode(LED_PIN, OUTPUT);
+#endif
+  setLed(true);  // one green flash at boot shows the LED works
+  delay(400);
+  setLed(false);
   pinMode(BOOT_BUTTON, INPUT_PULLUP);
 
   Wire.begin(I2C_SDA, I2C_SCL);
@@ -158,6 +193,8 @@ void setup() {
 
   plug.begin(false);
   plug.onChange(onMatterChange);
+  ledPlug.begin(false);
+  ledPlug.onChange(onMatterLedChange);
   Matter.begin();
 
   if (!Matter.isDeviceCommissioned()) {
@@ -197,7 +234,7 @@ void loop() {
   // Without a working sensor the motor's state can't be verified, so assume it follows the relay
   // and tell the backend there is no sensor (it then skips the "on but not running" check).
   bool running = mpuOk ? vibration > VIBRATION_THRESHOLD : relayOn;
-  String command = report(running);
+  String command = reportNode(NODE_ID, NODE_NAME, relayOn, running, vibration, mpuOk, 2.0f);
   Serial.printf("relay=%s vib=%.4f running=%s%s\n", relayOn ? "ON" : "OFF", vibration, running ? "yes" : "no",
                 mpuOk ? "" : " (no sensor)");
 
@@ -208,6 +245,17 @@ void loop() {
       setRelay(on);
       plug.setOnOff(on);
       Serial.printf("Backend: relay %s\n", on ? "ON" : "OFF");
+    }
+  }
+
+  // The onboard LED is its own device: no sensor, so "running" just follows its state.
+  String ledCommand = reportNode(LED_NODE_ID, LED_NODE_NAME, ledOn, ledOn, 0, false, 0.2f);
+  if (ledCommand.length() > 0) {
+    bool on = ledCommand == "on";
+    if (on != ledOn) {
+      setLed(on);
+      ledPlug.setOnOff(on);
+      Serial.printf("Backend: LED %s\n", on ? "ON" : "OFF");
     }
   }
 }

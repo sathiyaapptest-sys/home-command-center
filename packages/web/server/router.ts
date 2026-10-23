@@ -97,6 +97,9 @@ export class RuleRouter implements ToolRouter {
       if (minutes) return { kind: 'tool', name: 'run_device_for_duration', input: { device: clean(run[1]), minutes } };
     }
 
+    const bare = /^(?:please\s+)?(?:turn|switch)\s+(on|off)(?:\s+please)?[?.!]*$/.exec(text);
+    if (bare) return { kind: 'text', text: `Which device should I turn ${bare[1]}? For example: "turn ${bare[1]} the fan plug".` };
+
     const power = /\b(?:turn|switch)\s+(on|off)\s+(.+)$/.exec(text) ?? /\b(?:turn|switch)\s+(.+?)\s+(on|off)$/.exec(text);
     if (power && has('set_device_power')) {
       const state = power[1] === 'on' || power[1] === 'off' ? power[1] : power[2];

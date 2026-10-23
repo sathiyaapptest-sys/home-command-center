@@ -6,11 +6,12 @@ import type { Config } from './config.js';
 import { oauthRouter } from './oauth/router.js';
 import type { OAuthStore } from './oauth/store.js';
 import { createMcpServer } from './tools.js';
+import { originGuard, rejectBatch, rejectQueryToken, sessionGuard } from './transportGuards.js';
 
 const methodNotAllowed = (_req: express.Request, res: express.Response) => {
   res.status(405).set('Allow', 'POST').json({
     jsonrpc: '2.0',
-    error: { code: -32000, message: 'Method not allowed. This server is stateless: use POST /mcp.' },
+    error: { code: -32000, message: 'Method not allowed: use POST /mcp.' },
     id: null,
   });
 };
@@ -36,9 +37,11 @@ export function createApp(config: Config, store: OAuthStore, api: CommandCenterA
 
   app.use(oauthRouter(config, store));
 
-  // Stateless Streamable HTTP: a fresh MCP server + transport per request keeps the
-  // service restartable and horizontally scalable.
-  app.post('/mcp', requireBearer(store), express.json({ limit: '1mb' }), async (req, res) => {
+  // Streamable HTTP with a fresh MCP server + transport per request (no server-side session
+  // state), so the service stays restartable and horizontally scalable. Session ids are
+  // signed rather than stored; see transportGuards.ts.
+  const guards = [originGuard(config), rejectQueryToken, requireBearer(store)];
+  app.post('/mcp', ...guards, express.json({ limit: '1mb' }), rejectBatch, sessionGuard(config), async (req, res) => {
     // Our own web assistant logs its requests (with the Tamil wording) itself, so its calls
     // are marked and skipped here to avoid showing them twice on the TV.
     const fromAssistant = req.headers['x-activity-source'] === 'assistant';
@@ -77,8 +80,8 @@ export function createApp(config: Config, store: OAuthStore, api: CommandCenterA
       }
     }
   });
-  app.get('/mcp', requireBearer(store), methodNotAllowed);
-  app.delete('/mcp', requireBearer(store), methodNotAllowed);
+  app.get('/mcp', ...guards, methodNotAllowed);
+  app.delete('/mcp', ...guards, methodNotAllowed);
 
   return app;
 }

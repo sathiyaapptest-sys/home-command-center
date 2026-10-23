@@ -1,0 +1,21 @@
+ESP32-S3 (N16R8) motor node, live verification excerpt
+Captured on the real board over its serial port while the backend ran on the same network.
+The Wi-Fi name is replaced. The vibration sensor was NOT yet attached at this point, which is why
+the firmware reports "no sensor" and assumes the motor follows the relay.
+
+--- board serial output ---
+MPU6050 NOT found: check SDA/SCL wiring
+Connecting to Wi-Fi "<network>"... connected
+Not paired yet. In the Alexa app: Devices -> + -> Add Device -> Matter,
+relay=OFF vib=0.0000 running=no (no sensor)
+Backend: relay ON            <- command sent from the dashboard side (POST /devices/node-motor1/power {"power":"on"})
+relay=ON vib=0.0000 running=yes (no sensor)
+Backend: relay OFF           <- command sent from the dashboard side ({"power":"off"})
+
+--- backend view ---
+node-motor1 | ESP32 motor | power: off | online: True
+POST /nodes/motor1/report -> 200   (repeated once per second while the board is on the network)
+
+--- offline detection ---
+While the board was being re-flashed it stayed silent for more than 10 s and the backend raised
+a "not_responding" alert for node-motor1, as designed.

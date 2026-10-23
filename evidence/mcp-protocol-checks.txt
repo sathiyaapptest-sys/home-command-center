@@ -1,0 +1,20 @@
+Alexa+ / MCP protocol checks against this repo's MCP server
+Date: 2026-10-21
+Tool: ubmids/alexa-plus-mcp-checks @ 5bcf28a (MIT, third-party, run unmodified, not affiliated with this project)
+Command: ALEXA_MCP_TOKEN=<token from this server's OAuth flow> pytest --alexa-mcp-url http://localhost:4100/mcp
+Skipped checks 5a/5b are for the optional MCP Apps view feature (Echo Show), which this server does not use.
+
+PASS    1  401 without WWW-Authenticate  -- 401, no WWW-Authenticate, with no token and a bad token
+PASS   2a  Protected resource metadata (RFC 9728)  -- /.well-known/oauth-protected-resource/mcp; resource http://localhost:4100/mcp; authorization_servers ['http://localhost:4100']
+PASS   2b  Authorization server metadata advertises S256  -- /.well-known/oauth-authorization-server; code_challenge_methods_supported ['S256']
+PASS    3  Bearer token in the query string is refused  -- refused with 400 (with header) and 400 (query only)
+PASS    4  initialize negotiates 2025-11-25 and issues Mcp-Session-Id  -- protocolVersion 2025-11-25, session id issued
+SKIP   5a  MCP Apps views are listed and served as text/html;profile=mcp-app  -- no tool declares _meta.ui.resourceUri, so there is no MCP App to check
+SKIP   5b  A tool result with structuredContent names its view  -- pass --alexa-mcp-tool-call NAME='{"arg": 1}' to check where a real tool result names its view
+PASS    6  Warm round trip under the latency budget  -- median 1.6 ms, min 1.4, max 2.1 over 10 tools/list calls (budget 500 ms)
+PASS    7  A foreign Origin is refused with 403  -- Origin http://evil.example.com refused with 403
+PASS    8  An unsupported MCP-Protocol-Version is 400  -- MCP-Protocol-Version 1999-01-01 refused with 400
+PASS    9  A request without Mcp-Session-Id after initialize is 400  -- request without a session id refused with 400
+PASS   10  A JSON-RPC batch is refused  -- batch refused with HTTP 400
+PASS   11  Bad tool arguments are an isError result that leaks no internals  -- get_device_status: isError, 'MCP error -32602: Input validation error: Invalid arguments for tool get_device_status: Invalid input: expected string, '
+11 passed, 2 skipped in 0.11s

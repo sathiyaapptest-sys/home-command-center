@@ -58,6 +58,7 @@ Tracked per Amazon's official format (confirmed via amazonappdev2026.devpost.com
 - **Actual result:** `failed to connect ...: No route to host -- ip or mac address`, while `ping` and `nc -z <ip> 5555` from the same shell both succeeded. The cause is the auto-started background `vda` server (`vda -L tcp:5037 fork-server server`): macOS blocks LAN access for detached daemons that no permitted app owns, and the error message gives no hint of that.
 - **Severity:** High — looks like a network or router fault, so users will debug the wrong thing.
 - **Workaround used:** `vega exec vda kill-server`, then run `vega exec vda server nodaemon` in a Terminal tab (so macOS attributes it to Terminal), then `vega exec vda connect` worked immediately.
+- **Reproduced 2026-10-21:** after the Stick got a new DHCP address, the foreground `vda server nodaemon` also logged `network.cpp:149 failed to connect to '<ip>:5555': No route to host`, while `nc -zv <ip> 5555` run in the same Terminal tab succeeded. Stopping and restarting the helper made `vda connect` work immediately. So the failure is intermittent and unrelated to reachability, which makes it very hard to diagnose.
 - **Actionable suggestion:** Detect EHOSTUNREACH from the vda server on macOS and print the Local Network permission / foreground-server workaround; document it on the "Configure VDA over TCP/IP" page.
 
 ---
@@ -128,6 +129,18 @@ Tracked per Amazon's official format (confirmed via amazonappdev2026.devpost.com
 - **Severity:** High — a participant following the hackathon's own steps (new account, request credits) hits two silent blockers, and the error text points at the wrong thing.
 - **Workaround used:** Built AWS mode behind interfaces and tested it against fakes, and shipped an offline mode (keyword routing, English) so the project runs without any AWS account.
 - **Actionable suggestion:** State on the Resources page that credits need the Paid plan, and have the Translate/Bedrock errors say "Free plan accounts cannot use this service" when that is the cause.
+
+---
+
+### 12. Alexa names a Matter device's endpoints "Second plug" and "Third plug", with no way to tell which is which
+
+- **Task attempted:** Pair an ESP32 that exposes two Matter on/off plugs (a relay and its onboard LED) with an Echo through the Alexa app, then control each by voice.
+- **Steps taken:** Alexa app → Devices → + → Add Device → Matter → entered the 11-digit setup code the board prints on its serial port, accepted the "not Matter certified" prompt, then set up the three devices Alexa listed one at a time.
+- **Expected result:** Each plug appears with something that says which endpoint it is, or the setup flow lets you identify it (a "test this device" toggle).
+- **Actual result:** Pairing worked and the uncertified prompt allowed it to continue, but the devices were listed as "First device", "Second plug", "Third plug" (the first being the board itself). The only way to learn which plug was the LED was to switch each one on and watch the board.
+- **Severity:** Low — it works, but it is confusing for anyone building a multi-endpoint Matter device, and nothing in the setup flow warns about it.
+- **Workaround used:** Switched each plug on from the app while watching the board's LED and the backend state, then renamed them.
+- **Actionable suggestion:** Show the Matter endpoint's label (or its device type and endpoint number) during setup, and add a "Test" or "Identify" button that sends the Matter Identify command, so developers can tell endpoints apart.
 
 ---
 

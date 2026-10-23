@@ -1,0 +1,8 @@
+Automated test results (2026-10-23, Node 20.20.2)
+
+backend (vitest)           : Tests  29 passed (29)
+shared (vitest)            : Tests  7 passed (7)
+mcp-server (vitest)        : Tests  46 passed (46)
+web assistant (vitest)     : Tests  43 passed (43)
+fire tv dashboard (jest)   : Tests:       10 passed, 10 total
+total                      : 135 passed

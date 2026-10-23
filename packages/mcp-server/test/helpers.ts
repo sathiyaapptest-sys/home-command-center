@@ -93,6 +93,7 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   clientSecret: 'test-secret-value',
   ownerPasscode: 'open-sesame',
   redirectUris: [],
+  allowedOrigins: [],
   dataDir: '.data-test',
   accessTokenTtlSec: 3600,
   refreshTokenTtlSec: 86400,

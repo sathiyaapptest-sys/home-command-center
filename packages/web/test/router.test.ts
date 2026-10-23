@@ -33,6 +33,14 @@ describe('RuleRouter', () => {
     });
   });
 
+  it('asks which device when told to turn something on or off with no device named', async () => {
+    for (const text of ['turn off', 'Turn on please', 'switch off.']) {
+      const decision = await route(text);
+      expect(decision.kind).toBe('text');
+      expect((decision as { text: string }).text).toMatch(/^Which device should I turn (on|off)\?/);
+    }
+  });
+
   it('answers with what it can do when nothing matches, and ignores tools the server lacks', async () => {
     expect((await route('sing me a song')).kind).toBe('text');
     expect((await new RuleRouter().route('list my notes', [])).kind).toBe('text');

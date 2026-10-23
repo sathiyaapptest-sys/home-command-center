@@ -11,7 +11,7 @@ Built for the **Build, Ship, Shape: Amazon Developer Hackathon**. Primary track:
 - **MCP server (Alexa+ track).** Seven tools over Streamable HTTP with OAuth 2.1 + PKCE account linking. See [MCP server](#mcp-server).
 - **Tamil and English assistant (optional, needs AWS).** The web assistant translates Tamil to English with Amazon Translate, picks a tool, calls the MCP server, and translates the reply back. Voice input uses Amazon Transcribe streaming.
 - **TV dashboard.** A native Vega OS app shows device health, alerts, notes and a live panel of what the assistant just did.
-- **Real hardware.** An ESP32 reports every second (relay state plus whether the motor is really turning, measured with an MPU6050) and takes on/off commands from the backend. It can also act as a Matter on/off plug.
+- **Real hardware.** An ESP32 reports every second (relay state plus whether the motor is really turning, measured with an MPU6050) and takes on/off commands from the backend. It also exposes two Matter on/off plugs (the relay and the board's own LED), and has been paired with an Echo through the Alexa app, so "Alexa, turn on the ESP32 LED" works by voice without any cloud skill.
 
 ## Quick start (no AWS account needed)
 
@@ -52,6 +52,7 @@ curl localhost:4000/alerts
 | `packages/shared/` | Types, API client and formatting shared by the dashboard, MCP server and web app |
 | `firmware/motor-node/` | ESP32 / ESP32-S3 firmware (Arduino) |
 | `FRICTION_LOG.md` | Developer-experience feedback gathered while building |
+| `evidence/` | Captured proof: protocol-check output, test totals, ESP32 serial log excerpt |
 
 ## MCP server
 
@@ -59,12 +60,16 @@ curl localhost:4000/alerts
 
 Tools: `list_devices`, `get_device_status`, `get_recent_alerts`, `set_device_power`, `run_device_for_duration`, `add_note`, `list_notes`. Replies are written to be read aloud, device names are matched loosely ("the pump plug"), and a timed run on a faulty device is refused.
 
+The transport follows the MCP 2025-11-25 rules: `Origin` is validated (403 for foreign origins), JSON-RPC batches and tokens in the query string are refused, and `initialize` issues an `Mcp-Session-Id`. Session ids are signed (random nonce + HMAC) instead of stored, so the server stays stateless and restartable.
+
 Account linking is an OAuth 2.1 authorization-code flow with mandatory **PKCE S256**, a resource indicator, refresh tokens, hashed token storage, and a passcode consent page with lockout after repeated failures. Discovery metadata is served at `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`. The web assistant links to the server with this same flow, so the demo exercises the real authentication path.
 
 ```bash
 curl localhost:4100/.well-known/oauth-protected-resource
 curl -i -X POST localhost:4100/mcp   # 401: not linked
 ```
+
+**Protocol conformance.** Besides our own tests, the server was checked with a third-party tool for Alexa+ MCP servers, [alexa-plus-mcp-checks](https://github.com/ubmids/alexa-plus-mcp-checks) (MIT, run unmodified): 11 checks pass and 2 are skipped because they cover an optional Echo Show view feature. The output is in [`evidence/mcp-protocol-checks.txt`](evidence/mcp-protocol-checks.txt). Running it found five gaps in our first version (Origin validation, batch and query-token refusal, session ids, and a metadata address mismatch in the test setup), which are now fixed and covered by tests. A second third-party tool, [Hearsay](https://github.com/hearsayhq/hearsay) (voice-readiness lint of the tool list), reports no findings; see [`evidence/hearsay-lint.txt`](evidence/hearsay-lint.txt).
 
 ## AWS mode (Tamil, voice, model-based routing)
 
@@ -87,10 +92,10 @@ The relay switches only the low-voltage (5 V) side. **Never connect mains to the
 ## Tests
 
 ```bash
-(cd backend && npx vitest run)               # 28
+(cd backend && npx vitest run)               # 29
 (cd packages/shared && npx vitest run)       # 7
-(cd packages/mcp-server && npx vitest run)   # 37, including a real MCP client over HTTP and the OAuth security cases
-(cd packages/web && npx vitest run)          # 42
+(cd packages/mcp-server && npx vitest run)   # 46, including a real MCP client over HTTP, the OAuth security cases and the transport rules
+(cd packages/web && npx vitest run)          # 43
 (cd packages/vega && npx jest)               # 10
 ```
 
@@ -101,6 +106,7 @@ Services bind to loopback by default; the ESP32 endpoint requires a shared devic
 ## Status and honest limitations
 
 - **Devices are simulated** (fictional brands), except the ESP32 node, which is real hardware. Alexa offers third-party apps no way to read a customer's device list or state, so real Amazon devices are not read.
+- **Matter pairing uses the library's test credentials**, so the Alexa app asks you to confirm that the device is not Matter certified. Matter control through an Echo is demonstrated with the board's LED; the relay is not yet wired to a load.
 - **Alexa+ add-on tools are in preview for select partners**, so this project does not deploy to an Alexa+ device. The Alexa+ experience is demonstrated through the self-hosted MCP server and a web page acting as a real MCP client, which the hackathon rules allow.
 - **AWS mode is built and covered by tests against fakes**; see the project description for how far live verification got before the submission deadline.
 - The Tamil starter phrases are first drafts and should be reviewed by a native speaker.

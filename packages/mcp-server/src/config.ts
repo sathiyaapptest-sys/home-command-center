@@ -9,6 +9,8 @@ export interface Config {
   ownerPasscode: string;
   /** Extra exact-match redirect URIs, on top of the Alexa host pattern. */
   redirectUris: string[];
+  /** Extra browser origins allowed to call /mcp (comma-separated ALLOWED_ORIGINS), e.g. an MCP inspector. */
+  allowedOrigins: string[];
   dataDir: string;
   accessTokenTtlSec: number;
   refreshTokenTtlSec: number;
@@ -31,6 +33,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     redirectUris: (env.OAUTH_REDIRECT_URIS ?? '')
       .split(',')
       .map((uri) => uri.trim())
+      .filter(Boolean),
+    allowedOrigins: (env.ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((origin) => origin.trim())
       .filter(Boolean),
     dataDir: env.DATA_DIR ?? '.data',
     accessTokenTtlSec: Number(env.ACCESS_TOKEN_TTL_SEC ?? 3600),
