@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+build-s3/
+.run/
+.data/
+.env
+*.log
+.DS_Store
+# local-only files
+firmware/motor-node/secrets.h
+packages/vega/src/config.local.ts
+PROJECT_NOTES.md
+.claude/
+submission/
+buildinfo.json

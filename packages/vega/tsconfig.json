@@ -1,0 +1,11 @@
+{
+    "extends": "@react-native/typescript-config",
+    "compilerOptions": {
+        "types": ["jest", "@amazon-devices/react-native-kepler"], // Override "jest", "react-native" from @react-native/typescript-config
+        "baseUrl": ".",
+        "paths": {
+            "@command-center/shared": ["../shared/src/index.ts"]
+        }
+    },
+    "include": ["src", "test", "index.js"]
+}

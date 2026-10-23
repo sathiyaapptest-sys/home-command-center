@@ -1,0 +1,14 @@
+*.iml
+*.swp
+.idea
+.DS_Store
+.vscode
+.tmp
+
+dist
+build
+node_modules
+CMakeUserPresets.json
+npm-debug.log
+# local, machine-specific API address (see src/config.example.ts)
+src/config.local.ts
